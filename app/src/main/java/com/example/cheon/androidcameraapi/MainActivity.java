@@ -14,6 +14,9 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 
+import static android.view.View.INVISIBLE;
+import static android.view.View.VISIBLE;
+
 public class MainActivity extends AppCompatActivity
         implements ActivityCompat.OnRequestPermissionsResultCallback {
 
@@ -40,7 +43,6 @@ public class MainActivity extends AppCompatActivity
 
         mLayout = findViewById(R.id.layout_main);
         surfaceView = findViewById(R.id.camera_preview_main);
-
         Button button = findViewById(R.id.button_main_capture);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -49,7 +51,13 @@ public class MainActivity extends AppCompatActivity
             }
 
         });
-
+        Button previewButton = findViewById(R.id.preview_frame_capture);
+        previewButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mCameraPreview.saveProcessFrame();
+            }
+        });
 
         if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA)) {
 

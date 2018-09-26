@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
+import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.net.Uri;
@@ -42,6 +43,9 @@ public class CameraPreview extends ViewGroup
     private boolean isPreview = false;
 
     private long pretime;
+    private byte[] processBuffer;
+    private int frameWidth, frameHeight, frameFormat;
+    private int pictureWidth, pictureHeight;
 
     private AppCompatActivity mActivity;
 
@@ -152,8 +156,14 @@ public class CameraPreview extends ViewGroup
 
         // get Camera parameters
         Camera.Parameters params = mCamera.getParameters();
-        params.setPreviewSize(256, 144);
-        mCamera.setParameters(params);
+        frameWidth = params.getPreviewSize().width;
+        frameHeight = params.getPreviewSize().height;
+        frameFormat = params.getPreviewFormat();
+        pictureHeight = params.getPictureSize().height;
+        pictureWidth = params.getPictureSize().width;
+        Log.d("picpic", String.valueOf(pictureHeight));
+//        params.setPreviewSize(256, 144);
+//        mCamera.setParameters(params);
 
         List<String> focusModes = params.getSupportedFocusModes();
         if (focusModes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) {
@@ -266,22 +276,14 @@ public class CameraPreview extends ViewGroup
             mCamera.setPreviewCallback(new Camera.PreviewCallback() {
                 @Override
                 public void onPreviewFrame(byte[] bytes, Camera camera) {
-                    long curtime = System.currentTimeMillis();
+//                    long curtime = System.currentTimeMillis();
+//
+//                    Log.d("fps-measure", String.valueOf(curtime - pretime));
+//
+//                    pretime = curtime;
 
-                    Log.d("fps-measure", String.valueOf(curtime - pretime));
-
-                    pretime = curtime;
-
-                    Camera.Parameters preParams = mCamera.getParameters();
-
-                    int width = preParams.getPreviewSize().width;
-                    int height = preParams.getPreviewSize().height;
-                    int format = preParams.getPreviewFormat();
-                    Log.d("onpreviewsize", String.valueOf(width) + " " + String.valueOf(height));
-                    for (int i = 0; i < 1000; i++) {
-                        bytes[i] = (byte) 0;
-                    }
-
+                    processBuffer = bytes.clone();
+                    Log.d("onpreviewsize", String.valueOf(frameWidth) + " " + String.valueOf(frameHeight));
 
                     //String resultBinary = String.format("%8s", Integer.toBinaryString(result & 0xFF)).replace(' ', '0');
 
@@ -362,7 +364,7 @@ public class CameraPreview extends ViewGroup
             int w = camera.getParameters().getPictureSize().width;
             int h = camera.getParameters().getPictureSize().height;
             int orientation = calculatePreviewOrientation(mCameraInfo, mDisplayOrientation);
-
+            Log.d("pic", String.valueOf(h));
 
             //byte array를 bitmap으로 변환
             BitmapFactory.Options options = new BitmapFactory.Options();
@@ -447,6 +449,68 @@ public class CameraPreview extends ViewGroup
     public int byteToint(byte[] arr) {
         return (arr[0] & 0xff)<<24 | (arr[1] & 0xff)<<16 |
                 (arr[2] & 0xff)<<8 | (arr[3] & 0xff);
+    }
+
+    public void saveProcessFrame() {
+        Log.d("saveFrame","sibal");
+
+//        for(int i = 0; i < 1300; i++) {
+//            processBuffer[i] = (byte)255;
+//        }
+
+        int orientation = calculatePreviewOrientation(mCameraInfo, mDisplayOrientation);
+
+//        BitmapFactory.Options options = new BitmapFactory.Options();
+//        options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+//        Bitmap bitmap = BitmapFactory.decodeByteArray( processBuffer, 0, processBuffer.length, options);
+
+        YuvImage yuv = new YuvImage(processBuffer, frameFormat, frameWidth, frameHeight, null);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        yuv.compressToJpeg(new Rect(0, 0, frameWidth, frameHeight), 50, out);
+
+        byte[] bytes = out.toByteArray();
+        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0 , bytes.length);
+
+//        Matrix matrix = new Matrix();
+//        matrix.postRotate(orientation);
+//        if (bitmap == null) {
+//            Log.d("bitmap null", "null nullnull");
+//        }
+//        else {
+//            bitmap = Bitmap.createBitmap(bitmap, 0, 0, pictureWidth, pictureHeight, matrix, true);
+//        }
+
+        FileOutputStream outStream = null;
+
+        try {
+            File path = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/camtest");
+            if (!path.exists()) {
+                path.mkdirs();
+            }
+
+            String fileName = String.format("%d.jpg", System.currentTimeMillis());
+            File outputFile = new File(path, fileName);
+
+            outStream = new FileOutputStream(outputFile);
+
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outStream);
+            outStream.flush();
+            outStream.close();
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void applyGrayScale(int[] pixels, byte[] data, int width, int height) {
+        int p;
+        int size = width*height;
+        for (int i = 0; i < size; i++) {
+            p = data[i] & 0xFF;
+            pixels[i] = 0xff000000 | p<<16 | p<<8 | p;
+        }
+        //to create bitmap just
+        //Bitmap bm = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);
     }
 
 
