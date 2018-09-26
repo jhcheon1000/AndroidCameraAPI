@@ -44,6 +44,7 @@ public class CameraPreview extends ViewGroup
 
     private long pretime;
     private byte[] processBuffer;
+    private int[] pixels;
     private int frameWidth, frameHeight, frameFormat;
     private int pictureWidth, pictureHeight;
 
@@ -162,7 +163,16 @@ public class CameraPreview extends ViewGroup
         pictureHeight = params.getPictureSize().height;
         pictureWidth = params.getPictureSize().width;
         Log.d("picpic", String.valueOf(pictureHeight));
+        pixels = new int[frameWidth*frameHeight];
 //        params.setPreviewSize(256, 144);
+
+        String supportedIsoValues = params.get("iso-values");
+        int minExposure = params.getMinExposureCompensation();
+        int maxExposure = params.getMaxExposureCompensation();
+        Log.d("iso-value", supportedIsoValues);
+        Log.d("min max", "min : " + String.valueOf(minExposure) + "  max : " + String.valueOf(maxExposure));
+        //params.setExposureCompensation(20);
+        //params.set("iso", String.valueOf(800));
 //        mCamera.setParameters(params);
 
         List<String> focusModes = params.getSupportedFocusModes();
@@ -276,13 +286,15 @@ public class CameraPreview extends ViewGroup
             mCamera.setPreviewCallback(new Camera.PreviewCallback() {
                 @Override
                 public void onPreviewFrame(byte[] bytes, Camera camera) {
-//                    long curtime = System.currentTimeMillis();
-//
-//                    Log.d("fps-measure", String.valueOf(curtime - pretime));
-//
-//                    pretime = curtime;
+                    long curtime = System.currentTimeMillis();
+
+                    Log.d("fps-measure", String.valueOf(curtime - pretime));
+
+                    pretime = curtime;
 
                     processBuffer = bytes.clone();
+                    applyGrayScale();
+
                     Log.d("onpreviewsize", String.valueOf(frameWidth) + " " + String.valueOf(frameHeight));
 
                     //String resultBinary = String.format("%8s", Integer.toBinaryString(result & 0xFF)).replace(' ', '0');
@@ -458,19 +470,21 @@ public class CameraPreview extends ViewGroup
 //            processBuffer[i] = (byte)255;
 //        }
 
-        int orientation = calculatePreviewOrientation(mCameraInfo, mDisplayOrientation);
+//        int orientation = calculatePreviewOrientation(mCameraInfo, mDisplayOrientation);
 
 //        BitmapFactory.Options options = new BitmapFactory.Options();
 //        options.inPreferredConfig = Bitmap.Config.ARGB_8888;
 //        Bitmap bitmap = BitmapFactory.decodeByteArray( processBuffer, 0, processBuffer.length, options);
 
-        YuvImage yuv = new YuvImage(processBuffer, frameFormat, frameWidth, frameHeight, null);
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        yuv.compressToJpeg(new Rect(0, 0, frameWidth, frameHeight), 50, out);
-
-        byte[] bytes = out.toByteArray();
-        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0 , bytes.length);
+//      ######################
+//        YuvImage yuv = new YuvImage(processBuffer, frameFormat, frameWidth, frameHeight, null);
+//
+//        ByteArrayOutputStream out = new ByteArrayOutputStream();
+//        yuv.compressToJpeg(new Rect(0, 0, frameWidth, frameHeight), 50, out);
+//
+//        byte[] bytes = out.toByteArray();
+//        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0 , bytes.length);
+//      ######################
 
 //        Matrix matrix = new Matrix();
 //        matrix.postRotate(orientation);
@@ -480,6 +494,8 @@ public class CameraPreview extends ViewGroup
 //        else {
 //            bitmap = Bitmap.createBitmap(bitmap, 0, 0, pictureWidth, pictureHeight, matrix, true);
 //        }
+
+        Bitmap bitmap = applyGrayScale();
 
         FileOutputStream outStream = null;
 
@@ -502,15 +518,16 @@ public class CameraPreview extends ViewGroup
         }
     }
 
-    public static void applyGrayScale(int[] pixels, byte[] data, int width, int height) {
+    public Bitmap applyGrayScale() {
         int p;
-        int size = width*height;
+        int size = frameWidth*frameHeight;
         for (int i = 0; i < size; i++) {
-            p = data[i] & 0xFF;
-            pixels[i] = 0xff000000 | p<<16 | p<<8 | p;
+            p = processBuffer[i] & 0xFF;
+            pixels[i] = 0xff000000 | p << 16 | p << 8 | p;
         }
         //to create bitmap just
-        //Bitmap bm = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888);
+        Bitmap bm = Bitmap.createBitmap(pixels, frameWidth, frameHeight, Bitmap.Config.ARGB_8888);
+        return bm;
     }
 
 
